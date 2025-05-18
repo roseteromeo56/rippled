@@ -1,5 +1,5 @@
 name: nix
-on:
+on: Romeo Rosete
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   push:
