@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 Romeo Rosete
 jobs:
-  job:
+  documentation:
     runs-on: ubuntu-latest
     permissions:
       contents: write
