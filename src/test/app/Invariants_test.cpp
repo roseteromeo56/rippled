@@ -24,6 +24,7 @@
 #include <xrpl/ledger/helpers/DirectoryHelpers.h>
 #include <xrpl/ledger/helpers/RippleStateHelpers.h>
 #include <xrpl/protocol/AccountID.h>
+#include <xrpl/protocol/Book.h>
 #include <xrpl/protocol/Feature.h>
 #include <xrpl/protocol/Indexes.h>
 #include <xrpl/protocol/InnerObjectFormats.h>
@@ -50,6 +51,7 @@
 #include <xrpl/tx/ApplyContext.h>
 #include <xrpl/tx/Transactor.h>
 #include <xrpl/tx/applySteps.h>
+#include <xrpl/tx/invariants/DirectoryInvariant.h>
 #include <xrpl/tx/invariants/VaultInvariant.h>
 
 #include <algorithm>
@@ -2034,6 +2036,106 @@ class Invariants_test : public beast::unit_test::Suite
                         tx.setFieldAmount(sfTakerGets, XRP(1));
                     }},
                 {tecINVARIANT_FAILED, tecINVARIANT_FAILED});
+        }
+    }
+
+    void
+    testBookDirectoryExchangeRate()
+    {
+        using namespace test::jtx;
+        testcase << "book directory exchange rate";
+
+        auto const getBookRootKey = [](Account const& account, std::uint64_t quality) {
+            Book const book{xrpIssue(), account["USD"], std::nullopt};
+            return keylet::quality(keylet::kBook(book), quality);
+        };
+
+        // Root book-directory pages carry exchange-rate metadata that must
+        // match the quality encoded in the directory key.
+        auto const makeRootPage = [](Keylet const& dir, std::uint64_t exchangeRate) {
+            auto sleDir = std::make_shared<SLE>(dir);
+            sleDir->setFieldH256(sfRootIndex, dir.key);
+            STVector256 indexes;
+            indexes.pushBack(uint256{1});
+            sleDir->setFieldV256(sfIndexes, indexes);
+            sleDir->setFieldU64(sfExchangeRate, exchangeRate);
+            return sleDir;
+        };
+
+        // Child pages do not carry quality metadata; they only point back to
+        // the root directory.
+        auto const makeChildPage = [](Keylet const& rootDir) {
+            auto sleDir = std::make_shared<SLE>(keylet::page(rootDir, 1));
+            sleDir->setFieldH256(sfRootIndex, rootDir.key);
+            STVector256 indexes;
+            indexes.pushBack(uint256{2});
+            sleDir->setFieldV256(sfIndexes, indexes);
+            return sleDir;
+        };
+
+        auto const makeOfferCreateTx = [] {
+            return STTx{ttOFFER_CREATE, [](STObject& tx) {
+                            Account const account{"A1"};
+                            tx.setFieldAmount(sfTakerPays, XRP(1));
+                            tx.setFieldAmount(sfTakerGets, account["USD"](1));
+                        }};
+        };
+        std::initializer_list<TER> const failTers = {tecINVARIANT_FAILED, tefINVARIANT_FAILED};
+
+        // Creating a root book directory with mismatched exchange-rate
+        // metadata violates the invariant.
+        doInvariantCheck(
+            {{"book directory exchange rate does not match directory quality"}},
+            [&](Account const& a1, Account const&, ApplyContext& ac) {
+                auto const directoryQuality = STAmount::kURateOne;
+                auto const dir = getBookRootKey(a1, directoryQuality);
+                ac.view().insert(makeRootPage(dir, directoryQuality + 1));
+                return true;
+            },
+            XRPAmount{},
+            makeOfferCreateTx(),
+            failTers);
+
+        // A new child page must point to an existing root page.
+        doInvariantCheck(
+            {{"book directory root missing"}},
+            [&](Account const& a1, Account const&, ApplyContext& ac) {
+                auto const directoryQuality = STAmount::kURateOne;
+                auto const rootDir = getBookRootKey(a1, directoryQuality);
+                // Insert only the child page.  It points at rootDir, but the
+                // corresponding root page is intentionally missing.
+                ac.view().insert(makeChildPage(rootDir));
+                return true;
+            },
+            XRPAmount{},
+            makeOfferCreateTx(),
+            failTers);
+
+        // Legacy bad-root tolerance:
+        // - The view contains a pre-existing root page with bad sfExchangeRate
+        //   metadata.
+        // - The simulated transaction only creates a child page pointing to
+        //   that root.
+        // - The invariant must pass because this transaction did not create
+        //   the bad root, only adding a child page.
+        {
+            Env env{*this, defaultAmendments()};
+            Account const a1{"A1"};
+            env.fund(XRP(1000), a1);
+            env.close();
+
+            OpenView view{*env.current()};
+            auto const directoryQuality = STAmount::kURateOne;
+            auto const rootDir = getBookRootKey(a1, directoryQuality);
+            view.rawInsert(makeRootPage(rootDir, directoryQuality + 1));
+
+            ValidBookDirectory invariant;
+            invariant.visitEntry(false, nullptr, makeChildPage(rootDir));
+
+            test::StreamSink sink{beast::Severity::Warning};
+            beast::Journal const jlog{sink};
+            BEAST_EXPECT(
+                invariant.finalize(makeOfferCreateTx(), tesSUCCESS, XRPAmount{}, view, jlog));
         }
     }
 
@@ -4489,6 +4591,7 @@ public:
         testPermissionedDomainInvariants(defaultAmendments() - fixCleanup3_1_3);
         testPermissionedDEX(defaultAmendments() | fixCleanup3_1_3);
         testPermissionedDEX(defaultAmendments() - fixCleanup3_1_3);
+        testBookDirectoryExchangeRate();
         testNoModifiedUnmodifiableFields();
         testValidPseudoAccounts();
         testValidLoanBroker();
