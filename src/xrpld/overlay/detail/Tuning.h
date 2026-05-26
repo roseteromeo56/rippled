@@ -1,14 +1,16 @@
 #pragma once
+#include <cstddef>
+#include <cstdint>
 
 namespace xrpl::Tuning {
 
 /** How many ledgers off a server can be and we will
     still consider it converged */
-static constexpr auto kConvergedLedgerLimit = 24;
+static constexpr std::uint32_t kConvergedLedgerLimit = 24;
 
 /** How many ledgers off a server has to be before we
     consider it diverged */
-static constexpr auto kDivergedLedgerLimit = 128;
+static constexpr std::uint32_t kDivergedLedgerLimit = 128;
 
 /** The soft cap on the number of ledger entries in a single reply. */
 static constexpr auto kSoftMaxReplyNodes = 8192;

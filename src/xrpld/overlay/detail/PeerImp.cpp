@@ -2032,7 +2032,7 @@ PeerImp::checkTracking(std::uint32_t validationSeq)
 void
 PeerImp::checkTracking(std::uint32_t seq1, std::uint32_t seq2)
 {
-    int const diff = std::max(seq1, seq2) - std::min(seq1, seq2);
+    std::uint32_t const diff = std::max(seq1, seq2) - std::min(seq1, seq2);
 
     if (diff < Tuning::kConvergedLedgerLimit)
     {
