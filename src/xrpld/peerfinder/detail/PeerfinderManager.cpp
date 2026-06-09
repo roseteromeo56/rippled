@@ -25,6 +25,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -99,8 +100,7 @@ public:
     }
 
     void
-    addFixedPeer(std::string const& name, std::vector<beast::IP::Endpoint> const& addresses)
-        override
+    addFixedPeer(std::string_view name, std::vector<beast::IP::Endpoint> const& addresses) override
     {
         logic_.addFixedPeer(name, addresses);
     }

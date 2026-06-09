@@ -19,6 +19,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace xrpl {
 
@@ -67,7 +68,7 @@ Cluster::update(
         iter = nodes_.erase(iter);
     }
 
-    nodes_.emplace_hint(iter, identity, name, loadFee, reportTime);
+    nodes_.emplace_hint(iter, identity, std::move(name), loadFee, reportTime);
     return true;
 }
 

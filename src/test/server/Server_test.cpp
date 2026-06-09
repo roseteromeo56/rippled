@@ -33,6 +33,7 @@
 #include <ostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -133,7 +134,8 @@ public:
         static void
         onRequest(Session& session)
         {
-            session.write(std::string("Hello, world!\n"));
+            using namespace std::string_view_literals;
+            session.write("Hello, world!\n"sv);
             if (beast::rfc2616::isKeepAlive(session.request()))
             {
                 session.complete();
