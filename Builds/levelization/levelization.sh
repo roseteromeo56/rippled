@@ -5,7 +5,7 @@
 # and can be run from any directory, as long as it is in the expected
 # location in the repo.
 
-pushd $( dirname $0 )
+pushd "$( dirname $0 )"
 
 if [ -v PS1 ]
 then
