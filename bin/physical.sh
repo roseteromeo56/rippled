@@ -151,7 +151,7 @@ if [ -e src/ripple ]; then
   files=$(
     extract_list 'XRPLD SOURCES'
     cd src/ripple
-    find * -regex '.*\.\(h\|ipp\|md\|pu\|uml\|png\)'
+    find ./* -regex '.*\.\(h\|ipp\|md\|pu\|uml\|png\)'
   )
   move_files src/ripple src/xrpld detail ${files[@]}
 
