@@ -80,7 +80,7 @@ else
   _run git config --add remotes.upstreams "${upstreamgroup}"
 fi
 
-_run git fetch --jobs=$(nproc) upstreams
+_run git fetch --jobs="$(nproc)" upstreams
 
 exit 0
 
